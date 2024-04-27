@@ -161,7 +161,7 @@ bot.on('text', async (ctx) => {
     const user = await userDb(ctx.message.from.id);
 
 
- if (await isUserSubscribed(userIdToCheck)) {
+    // if (await isUserSubscribed(userIdToCheck)) {
     console.log('t')
     if (text.includes("aliexpress.com")) {
         try {
@@ -253,7 +253,7 @@ bot.on('text', async (ctx) => {
                                         }
                                         idCatcher(url_link).then(response_link => {
 
-
+                                    
                                             console.log(response_link)
                                             if (response_link != null) {
                                                 user[0].links.push(" " + links[0])
@@ -547,14 +547,14 @@ ${coinPi.aff.limited}
         ctx.reply('ارسل روابط منتجات Aliexpress');
     }
 
-    } else {
-        const replyMarkup2 = {
-            inline_keyboard: [
-                [{ text: 'اشتراك', url: Channel }],
-            ],
-        };
-        ctx.reply(' اأنت غير مشترك في القناة.', { reply_markup: replyMarkup2 });
-    }
+    // } else {
+    //     const replyMarkup2 = {
+    //         inline_keyboard: [
+    //             [{ text: 'اشتراك', url: Channel }],
+    //         ],
+    //     };
+    //     ctx.reply(' اأنت غير مشترك في القناة.', { reply_markup: replyMarkup2 });
+    // }
 });
 app.listen(3000, () => {
     bot.telegram.setWebhook(`${process.env.RENDER_EXTERNAL_URL}/bot`)
