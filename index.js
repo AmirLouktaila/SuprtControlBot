@@ -4,7 +4,6 @@ const https = require('https');
 const express = require('express');
 const AliExpressLibrary = require('./afflinker.js');
 const AliExpressLibraryCart = require('./cart.js');
-const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const botToken = process.env.token;
 const appkey = process.env.appkeys;
@@ -18,6 +17,7 @@ const link_cart = process.env.cart;
 const bot = new Telegraf(botToken);
 const aliExpressLib = new AliExpressLibrary(appkey, secertkey, tarckin_id);
 const aliExpressLibCart = new AliExpressLibraryCart(appkey, secertkey, tarckin_id);
+const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SB_URL, process.env.SB_KEY, { auth: { persistSession: false } });
 
 app.use(express.json());
@@ -161,58 +161,218 @@ bot.on('text', async (ctx) => {
     const user = await userDb(ctx.message.from.id);
 
 
-    if (await isUserSubscribed(userIdToCheck)) {
-        console.log('t')
-        if (text.includes("aliexpress.com")) {
-            try {
-                if (text === "/start") {
-                    console.log("ok");
-                } else {
-                    try {
+ if (await isUserSubscribed(userIdToCheck)) {
+    console.log('t')
+    if (text.includes("aliexpress.com")) {
+        try {
+            if (text === "/start") {
+                console.log("ok");
+            } else {
+                try {
 
 
-                        const extractLinks = (text) => {
-                            const urlPattern = /http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+/g;
-                            const linksRedirect = text.match(urlPattern) || [];
-                            return linksRedirect;
-                        };
-                        const idCatcher = async (id) => {
-                            if (/^\d+$/.test(id)) {
-                                return id;
-                            } else if (id.includes("aliexpress.com")) {
-                                if (/\/(\d+)\.html/.test(id)) {
-                                    return id.match(/\/(\d+)\.html/)[1];
-                                } else {
-                                    try {
-                                        const response = await axios.head(id, { maxRedirects: 0, validateStatus: (status) => status >= 200 && status < 400 });
-                                        const decodedUrl = decodeURIComponent(response.headers.location);
-                                        const regex = /\/(\d+)\.html/;
-                                        const match = decodedUrl.match(regex);
-                                        if (match && match[1]) {
-                                            return match[1];
-                                        } else if (decodedUrl.includes('/item/')) {
-                                            const regexItem = /\/(\d+)\.html/;
-                                            const matchItem = decodedUrl.match(regexItem);
-                                            if (matchItem && matchItem[1]) {
-                                                return matchItem[1];
-                                            }
+                    const extractLinks = (text) => {
+                        const urlPattern = /http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+/g;
+                        const linksRedirect = text.match(urlPattern) || [];
+                        return linksRedirect;
+                    };
+                    const idCatcher = async (id) => {
+                        if (/^\d+$/.test(id)) {
+                            return id;
+                        } else if (id.includes("aliexpress.com")) {
+                            if (/\/(\d+)\.html/.test(id)) {
+                                return id.match(/\/(\d+)\.html/)[1];
+                            } else {
+                                try {
+                                    const response = await axios.head(id, { maxRedirects: 0, validateStatus: (status) => status >= 200 && status < 400 });
+                                    const decodedUrl = decodeURIComponent(response.headers.location);
+                                    const regex = /\/(\d+)\.html/;
+                                    const match = decodedUrl.match(regex);
+                                    if (match && match[1]) {
+                                        return match[1];
+                                    } else if (decodedUrl.includes('/item/')) {
+                                        const regexItem = /\/(\d+)\.html/;
+                                        const matchItem = decodedUrl.match(regexItem);
+                                        if (matchItem && matchItem[1]) {
+                                            return matchItem[1];
                                         }
-                                    } catch (error) {
-                                        console.error('Error occurred while fetching the URL:', error);
-                                        res.status(400).json({ ok: false, error: 'Invalid URL provided' });
-                                        return null;
                                     }
+                                } catch (error) {
+                                    console.error('Error occurred while fetching the URL:', error);
+                                    res.status(400).json({ ok: false, error: 'Invalid URL provided' });
+                                    return null;
                                 }
                             }
-                            console.error('Invalid ID or URL provided');
-                            return null;
-                        };
+                        }
+                        console.error('Invalid ID or URL provided');
+                        return null;
+                    };
 
 
-                        if (user[0]) { // kayen
+                    if (user[0]) { // kayen
 
-                            if (user[0].block != `block${ctx.message.from.id}`) {
+                        if (user[0].block != `block${ctx.message.from.id}`) {
 
+                            ctx.reply('انتظر قليلا ...')
+                                .then((message) => {
+                                    const links = extractLinks(`${ctx.message.text}`)
+
+                                    if (links[0].includes("/p/trade/confirm.html")) {
+
+                                        const match = links[0].match(/availableProductShopcartIds=([\d,]+)/);
+
+                                        if (match) {
+                                            let numbersText = match[1];
+                                            numbersText = numbersText.replaceAll(',', '%2C');
+                                            const finalUrl = `https://www.aliexpress.com/p/trade/confirm.html?availableProductShopcartIds=${numbersText}&extraParams=%7B%22channelInfo%22%3A%7B%22sourceType%22%3A%22620%22%7D%7D&aff_fcid=`;
+                                            console.log(finalUrl);
+                                            try {
+                                                aliExpressLibCart.getData(finalUrl).then((data) => {
+                                                    console.log(data)
+                                                    cart = `
+ رابط السلة 
+ ${data}                                   
+                                    `
+                                                    ctx.sendMessage(cart)
+                                                })
+
+                                            } catch (error) {
+                                                console.error(error.message);
+                                            }
+                                        }
+                                    }
+
+                                    else {
+                                        let url_link;
+                                        if (links[0].includes("https")) {
+                                            url_link = links[0]
+                                        } else {
+
+                                            var url_parts = links[0].split("http");
+                                            url_link = "https" + url_parts[1];
+                                        }
+                                        idCatcher(url_link).then(response_link => {
+
+
+                                            console.log(response_link)
+                                            if (response_link != null) {
+                                                user[0].links.push(" " + links[0])
+                                                // updateUser(ctx.message.from.id, { links: user[0].links })
+                                                //     .then((data, error) => {
+
+                                                //     });
+                                                aliExpressLib.getData(response_link)
+                                                    .then((coinPi) => {
+                                                        user[0].idlink.push(" " + response_link)
+                                                        updateUser(ctx.message.from.id, { links: user[0].links, idlink: user[0].idlink })
+                                                            .then((data, error) => {
+
+                                                            });
+                                                        console.log("coinPi : ", coinPi)
+                                                        let couponList = "";
+
+                                                        if (coinPi.info.normal.coupon == "لا يوجد كوبونات ❎") {
+                                                            couponList = coinPi.info.normal.coupon;
+                                                        } else {
+                                                            couponList = "";
+                                                            coinPi.info.normal.coupon.forEach(coupons => {
+                                                                const code = coupons.code;
+                                                                const detail = coupons.detail.replace('طلبات تزيد على US ', '');
+                                                                const desc = coupons.desc.replace('US ', '');
+                                                                couponList += `🎁${desc}/${detail} :${code}\n`;
+                                                            });
+                                                        }
+                                                        let total;
+                                                        if (coinPi.info.points.discount != 'لا توجد نسبة تخفيض بالعملات ❎') {
+                                                            var dise = coinPi.info.points.discount.replace("خصم النقاط ", "");
+                                                            var ods = parseFloat(dise.replace("%", ""));
+                                                            var prices = (parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) / 100) * ods;
+                                                            total = parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) - prices;
+                                                            if (coinPi.info.normal.shipping != "Free Shipping") {
+                                                                total = total + parseFloat(coinPi.info.normal.shipping);
+                                                            }
+                                                        } else {
+                                                            total = parseFloat(coinPi.info.points.discountPrice.replace("US $", ""));
+                                                            if (coinPi.info.normal.shipping != "Free Shipping") {
+                                                                total = total + parseFloat(coinPi.info.normal.shipping);
+                                                            }
+                                                        }
+
+                                                        try {
+                                                            total = total.toFixed(2);
+                                                        } catch (e) {
+                                                            total = total;
+                                                        }
+
+
+                                                        ctx.replyWithPhoto({ url: coinPi.info.normal.image },
+                                                            {
+
+
+                                                                caption: `
+<b>>-----------« تخفيض الاسعار 🎉 »>-----------</b>
+${coinPi.info.normal.name}
+
+السعر الاصلي : (${coinPi.info.points.discountPrice})
+
+التقييم : ${coinPi.info.normal.rate}
+التقييمات : ${coinPi.info.normal.totalRates}
+<b>----------- | ✨ المتجر ✨ | -----------</b>
+
+✈️ الشحن : ${coinPi.info.normal.shipping}
+🛒 إسم المتجر : ${coinPi.info.normal.store}
+📊 معدل تقييم المتجر : ${coinPi.info.normal.storeRate}
+<b>----------- | ✨ التخفيضات ✨ | -----------</b>
+
+عدد المبيعات : ${coinPi.info.normal.sales}
+🏷 نسبة تخفيض بالعملات قبل  :  (${coinPi.info.normal.discount})
+🏷 نسبة تخفيض بعد  : (${coinPi.info.points.discount})
+
+🌟رابط تخفيض النقاط:US $${total}
+${coinPi.aff.points}
+
+🔥 رابط تخفيض السوبر: ${coinPi.info.super.price}
+${coinPi.aff.super}
+
+📌رابط العرض المحدود: ${coinPi.info.limited.price}
+${coinPi.aff.limited}
+<b>----------- | ✨ الكوبونات ✨ | -----------</b>
+${couponList}
+` ,
+                                                                parse_mode: "HTML",
+                                                                ...Markup.inlineKeyboard([
+                                                                    Markup.button.callback("🛒 تخفيض العملات على منتجات السلة 🛒", "cart"),
+
+                                                                ])
+                                                            }).then(() => {
+                                                                ctx.deleteMessage(message.message_id)
+
+                                                            })
+
+
+                                                    });//
+                                            } else {
+                                                ctx.reply('الرابط غير صالح')
+
+                                            }
+
+
+                                        })
+                                    }
+                                })
+
+                                .catch(error => {
+                                    console.error(error.message);
+                                });////
+
+                        } else {
+                            console.log("blocked");
+                        }
+
+
+                    } else {
+                        await createUser({ id: ctx.message.from.id, links: [], idlink: [], block: `unblock${ctx.message.from.id}` })
+                            .then(async (data, error) => {
                                 ctx.reply('انتظر قليلا ...')
                                     .then((message) => {
                                         const links = extractLinks(`${ctx.message.text}`)
@@ -253,63 +413,60 @@ bot.on('text', async (ctx) => {
                                             }
                                             idCatcher(url_link).then(response_link => {
 
+                                                user[0].links.push(" " + links[0])
+                                                // updateUser(ctx.message.from.id, { links: user[0].links })
+                                                //             .then((data, error) => {
 
-                                                console.log(response_link)
-                                                if (response_link != null) {
-                                                    user[0].links.push(" " + links[0])
-                                                    // updateUser(ctx.message.from.id, { links: user[0].links })
-                                                    //     .then((data, error) => {
+                                                //             });
+                                                aliExpressLib.getData(response_link)
+                                                    .then((coinPi) => {
+                                                        user[0].idlink.push(" " + response_link)
+                                                        updateUser(ctx.message.from.id, { links: user[0].links, idlink: user[0].idlink })
+                                                            .then((data, error) => {
 
-                                                    //     });
-                                                    aliExpressLib.getData(response_link)
-                                                        .then((coinPi) => {
-                                                            user[0].idlink.push(" " + response_link)
-                                                            updateUser(ctx.message.from.id, { links: user[0].links, idlink: user[0].idlink })
-                                                                .then((data, error) => {
+                                                            });
+                                                        console.log("coinPi : ", coinPi)
+                                                        let couponList = "";
 
-                                                                });
-                                                            console.log("coinPi : ", coinPi)
-                                                            let couponList = "";
-
-                                                            if (coinPi.info.normal.coupon == "لا يوجد كوبونات ❎") {
-                                                                couponList = coinPi.info.normal.coupon;
-                                                            } else {
-                                                                couponList = "";
-                                                                coinPi.info.normal.coupon.forEach(coupons => {
-                                                                    const code = coupons.code;
-                                                                    const detail = coupons.detail.replace('طلبات تزيد على US ', '');
-                                                                    const desc = coupons.desc.replace('US ', '');
-                                                                    couponList += `🎁${desc}/${detail} :${code}\n`;
-                                                                });
+                                                        if (coinPi.info.normal.coupon == "لا يوجد كوبونات ❎") {
+                                                            couponList = coinPi.info.normal.coupon;
+                                                        } else {
+                                                            couponList = "";
+                                                            coinPi.info.normal.coupon.forEach(coupons => {
+                                                                const code = coupons.code;
+                                                                const detail = coupons.detail.replace('طلبات تزيد على US ', '');
+                                                                const desc = coupons.desc.replace('US ', '');
+                                                                couponList += `🎁${desc}/${detail} :${code}\n`;
+                                                            });
+                                                        }
+                                                        let total;
+                                                        if (coinPi.info.points.discount != 'لا توجد نسبة تخفيض بالعملات ❎') {
+                                                            var dise = coinPi.info.points.discount.replace("خصم النقاط ", "");
+                                                            var ods = parseFloat(dise.replace("%", ""));
+                                                            var prices = (parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) / 100) * ods;
+                                                            total = parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) - prices;
+                                                            if (coinPi.info.normal.shipping != "Free Shipping") {
+                                                                total = total + parseFloat(coinPi.info.normal.shipping);
                                                             }
-                                                            let total;
-                                                            if (coinPi.info.points.discount != 'لا توجد نسبة تخفيض بالعملات ❎') {
-                                                                var dise = coinPi.info.points.discount.replace("خصم النقاط ", "");
-                                                                var ods = parseFloat(dise.replace("%", ""));
-                                                                var prices = (parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) / 100) * ods;
-                                                                total = parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) - prices;
-                                                                if (coinPi.info.normal.shipping != "Free Shipping") {
-                                                                    total = total + parseFloat(coinPi.info.normal.shipping);
-                                                                }
-                                                            } else {
-                                                                total = parseFloat(coinPi.info.points.discountPrice.replace("US $", ""));
-                                                                if (coinPi.info.normal.shipping != "Free Shipping") {
-                                                                    total = total + parseFloat(coinPi.info.normal.shipping);
-                                                                }
+                                                        } else {
+                                                            total = parseFloat(coinPi.info.points.discountPrice.replace("US $", ""));
+                                                            if (coinPi.info.normal.shipping != "Free Shipping") {
+                                                                total = total + parseFloat(coinPi.info.normal.shipping);
                                                             }
+                                                        }
 
-                                                            try {
-                                                                total = total.toFixed(2);
-                                                            } catch (e) {
-                                                                total = total;
-                                                            }
-
-
-                                                            ctx.replyWithPhoto({ url: coinPi.info.normal.image },
-                                                                {
+                                                        try {
+                                                            total = total.toFixed(2);
+                                                        } catch (e) {
+                                                            total = total;
+                                                        }
 
 
-                                                                    caption: `
+                                                        ctx.replyWithPhoto({ url: coinPi.info.normal.image },
+                                                            {
+
+
+                                                                caption: `
 <b>>-----------« تخفيض الاسعار 🎉 »>-----------</b>
 ${coinPi.info.normal.name}
 
@@ -339,22 +496,18 @@ ${coinPi.aff.limited}
 <b>----------- | ✨ الكوبونات ✨ | -----------</b>
 ${couponList}
 ` ,
-                                                                    parse_mode: "HTML",
-                                                                    ...Markup.inlineKeyboard([
-                                                                        Markup.button.callback("🛒 تخفيض العملات على منتجات السلة 🛒", "cart"),
+                                                                parse_mode: "HTML",
+                                                                ...Markup.inlineKeyboard([
+                                                                    Markup.button.callback("🛒 تخفيض العملات على منتجات السلة 🛒", "cart"),
 
-                                                                    ])
-                                                                }).then(() => {
-                                                                    ctx.deleteMessage(message.message_id)
+                                                                ])
+                                                            }).then(() => {
+                                                                ctx.deleteMessage(message.message_id)
 
-                                                                })
+                                                            })
 
 
-                                                        });//
-                                                } else {
-                                                    ctx.reply('الرابط غير صالح')
-
-                                                }
+                                                    });
 
 
                                             })
@@ -364,168 +517,15 @@ ${couponList}
                                     .catch(error => {
                                         console.error(error.message);
                                     });////
-
-                            } else {
-                                console.log("blocked");
-                            }
+                            });
 
 
-                        } else {
-                            await createUser({ id: ctx.message.from.id, links: [], idlink: [], block: `unblock${ctx.message.from.id}` })
-                                .then(async (data, error) => {
-                                    ctx.reply('انتظر قليلا ...')
-                                        .then((message) => {
-                                            const links = extractLinks(`${ctx.message.text}`)
-
-                                            if (links[0].includes("/p/trade/confirm.html")) {
-
-                                                const match = links[0].match(/availableProductShopcartIds=([\d,]+)/);
-
-                                                if (match) {
-                                                    let numbersText = match[1];
-                                                    numbersText = numbersText.replaceAll(',', '%2C');
-                                                    const finalUrl = `https://www.aliexpress.com/p/trade/confirm.html?availableProductShopcartIds=${numbersText}&extraParams=%7B%22channelInfo%22%3A%7B%22sourceType%22%3A%22620%22%7D%7D&aff_fcid=`;
-                                                    console.log(finalUrl);
-                                                    try {
-                                                        aliExpressLibCart.getData(finalUrl).then((data) => {
-                                                            console.log(data)
-                                                            cart = `
- رابط السلة 
- ${data}                                   
-                                    `
-                                                            ctx.sendMessage(cart)
-                                                        })
-
-                                                    } catch (error) {
-                                                        console.error(error.message);
-                                                    }
-                                                }
-                                            }
-
-                                            else {
-                                                let url_link;
-                                                if (links[0].includes("https")) {
-                                                    url_link = links[0]
-                                                } else {
-
-                                                    var url_parts = links[0].split("http");
-                                                    url_link = "https" + url_parts[1];
-                                                }
-                                                idCatcher(url_link).then(response_link => {
-
-                                                    user[0].links.push(" " + links[0])
-                                                    // updateUser(ctx.message.from.id, { links: user[0].links })
-                                                    //             .then((data, error) => {
-
-                                                    //             });
-                                                    aliExpressLib.getData(response_link)
-                                                        .then((coinPi) => {
-                                                            user[0].idlink.push(" " + response_link)
-                                                            updateUser(ctx.message.from.id, { links: user[0].links, idlink: user[0].idlink })
-                                                                .then((data, error) => {
-
-                                                                });
-                                                            console.log("coinPi : ", coinPi)
-                                                            let couponList = "";
-
-                                                            if (coinPi.info.normal.coupon == "لا يوجد كوبونات ❎") {
-                                                                couponList = coinPi.info.normal.coupon;
-                                                            } else {
-                                                                couponList = "";
-                                                                coinPi.info.normal.coupon.forEach(coupons => {
-                                                                    const code = coupons.code;
-                                                                    const detail = coupons.detail.replace('طلبات تزيد على US ', '');
-                                                                    const desc = coupons.desc.replace('US ', '');
-                                                                    couponList += `🎁${desc}/${detail} :${code}\n`;
-                                                                });
-                                                            }
-                                                            let total;
-                                                            if (coinPi.info.points.discount != 'لا توجد نسبة تخفيض بالعملات ❎') {
-                                                                var dise = coinPi.info.points.discount.replace("خصم النقاط ", "");
-                                                                var ods = parseFloat(dise.replace("%", ""));
-                                                                var prices = (parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) / 100) * ods;
-                                                                total = parseFloat(coinPi.info.points.discountPrice.replace("US $", "")) - prices;
-                                                                if (coinPi.info.normal.shipping != "Free Shipping") {
-                                                                    total = total + parseFloat(coinPi.info.normal.shipping);
-                                                                }
-                                                            } else {
-                                                                total = parseFloat(coinPi.info.points.discountPrice.replace("US $", ""));
-                                                                if (coinPi.info.normal.shipping != "Free Shipping") {
-                                                                    total = total + parseFloat(coinPi.info.normal.shipping);
-                                                                }
-                                                            }
-
-                                                            try {
-                                                                total = total.toFixed(2);
-                                                            } catch (e) {
-                                                                total = total;
-                                                            }
-
-
-                                                            ctx.replyWithPhoto({ url: coinPi.info.normal.image },
-                                                                {
-
-
-                                                                    caption: `
-<b>>-----------« تخفيض الاسعار 🎉 »>-----------</b>
-${coinPi.info.normal.name}
-
-السعر الاصلي : (${coinPi.info.points.discountPrice})
-
-التقييم : ${coinPi.info.normal.rate}
-التقييمات : ${coinPi.info.normal.totalRates}
-<b>----------- | ✨ المتجر ✨ | -----------</b>
-
-✈️ الشحن : ${coinPi.info.normal.shipping}
-🛒 إسم المتجر : ${coinPi.info.normal.store}
-📊 معدل تقييم المتجر : ${coinPi.info.normal.storeRate}
-<b>----------- | ✨ التخفيضات ✨ | -----------</b>
-
-عدد المبيعات : ${coinPi.info.normal.sales}
-🏷 نسبة تخفيض بالعملات قبل  :  (${coinPi.info.normal.discount})
-🏷 نسبة تخفيض بعد  : (${coinPi.info.points.discount})
-
-🌟رابط تخفيض النقاط:US $${total}
-${coinPi.aff.points}
-
-🔥 رابط تخفيض السوبر: ${coinPi.info.super.price}
-${coinPi.aff.super}
-
-📌رابط العرض المحدود: ${coinPi.info.limited.price}
-${coinPi.aff.limited}
-<b>----------- | ✨ الكوبونات ✨ | -----------</b>
-${couponList}
-` ,
-                                                                    parse_mode: "HTML",
-                                                                    ...Markup.inlineKeyboard([
-                                                                        Markup.button.callback("🛒 تخفيض العملات على منتجات السلة 🛒", "cart"),
-
-                                                                    ])
-                                                                }).then(() => {
-                                                                    ctx.deleteMessage(message.message_id)
-
-                                                                })
-
-
-                                                        });
-
-
-                                                })
-                                            }
-                                        })
-
-                                        .catch(error => {
-                                            console.error(error.message);
-                                        });////
-                                });
-
-
-                        }
+                    }
 
 
 
-                    } catch (error) {
-                        const messageLink = `
+                } catch (error) {
+                    const messageLink = `
 🌟رابط تخفيض النقاط: ${coinPi.info.points.discount}
 ${coinPi.aff.points}
 
@@ -536,16 +536,16 @@ ${coinPi.aff.super}
 ${coinPi.aff.limited}
 
                     `;
-                        ctx.reply(messageLink);
-                    }
+                    ctx.reply(messageLink);
+                }
 
-                }////d
-            } catch (e) {
-                ctx.reply('حدث خطأ غير متوقع');
-            }
-        } else {
-            ctx.reply('ارسل روابط منتجات Aliexpress');
+            }////d
+        } catch (e) {
+            ctx.reply('حدث خطأ غير متوقع');
         }
+    } else {
+        ctx.reply('ارسل روابط منتجات Aliexpress');
+    }
 
     } else {
         const replyMarkup2 = {
@@ -563,7 +563,7 @@ app.listen(3000, () => {
             keepAppRunning();
         });
 });
-// bot.launch({ webhook: { domain: "", port: 5000 }, allowedUpdates: ['message', 'callback_query'], })
+// bot.launch({ webhook: { domain: "https://661c-154-247-38-190.ngrok-free.app", port: 5000 }, allowedUpdates: ['message', 'callback_query'], })
 //     .then(() => {
 //         console.log('Bot is running');
 //     })
