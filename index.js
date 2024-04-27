@@ -18,7 +18,6 @@ const link_cart = process.env.cart;
 const bot = new Telegraf(botToken);
 const aliExpressLib = new AliExpressLibrary(appkey, secertkey, tarckin_id);
 const aliExpressLibCart = new AliExpressLibraryCart(appkey, secertkey, tarckin_id);
-const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SB_URL, process.env.SB_KEY, { auth: { persistSession: false } });
 
 app.use(express.json());
