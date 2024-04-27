@@ -4,6 +4,7 @@ const https = require('https');
 const express = require('express');
 const AliExpressLibrary = require('./afflinker.js');
 const AliExpressLibraryCart = require('./cart.js');
+const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const botToken = process.env.token;
 const appkey = process.env.appkeys;
